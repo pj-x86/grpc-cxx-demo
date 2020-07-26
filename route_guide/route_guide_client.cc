@@ -23,6 +23,8 @@
 #include <string>
 #include <thread>
 
+#include "userlog.h"
+
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
@@ -30,11 +32,9 @@
 #include <grpcpp/security/credentials.h>
 #include "helper.h"
 #include "log_interceptor_client.h"
-#ifdef BAZEL_BUILD
-#include "examples/protos/route_guide.grpc.pb.h"
-#else
+
 #include "route_guide.grpc.pb.h"
-#endif
+
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -97,22 +97,27 @@ class RouteGuideClient {
     rect.mutable_lo()->set_longitude(-750000000);
     rect.mutable_hi()->set_latitude(420000000);
     rect.mutable_hi()->set_longitude(-730000000);
-    std::cout << "Looking for features between 40, -75 and 42, -73"
-              << std::endl;
+    //std::cout << "Looking for features between 40, -75 and 42, -73"
+    //          << std::endl;
+    SPDLOG_INFO("Looking for features between 40, -75 and 42, -73");
 
     std::unique_ptr<ClientReader<Feature> > reader(
         stub_->ListFeatures(&context, rect));
     while (reader->Read(&feature)) {
-      std::cout << "Found feature called "
-                << feature.name() << " at "
-                << feature.location().latitude()/kCoordFactor_ << ", "
-                << feature.location().longitude()/kCoordFactor_ << std::endl;
+      // std::cout << "Found feature called "
+      //           << feature.name() << " at "
+      //           << feature.location().latitude()/kCoordFactor_ << ", "
+      //           << feature.location().longitude()/kCoordFactor_ << std::endl;
+      SPDLOG_INFO("Found feature called {} at {:f}, {:f}", feature.name(), 
+        feature.location().latitude()/kCoordFactor_, feature.location().longitude()/kCoordFactor_);
     }
     Status status = reader->Finish();
     if (status.ok()) {
-      std::cout << "ListFeatures rpc succeeded." << std::endl;
+      //std::cout << "ListFeatures rpc succeeded." << std::endl;
+      SPDLOG_INFO("ListFeatures rpc succeeded.");
     } else {
-      std::cout << "ListFeatures rpc failed." << std::endl;
+      //std::cout << "ListFeatures rpc failed." << std::endl;
+      SPDLOG_ERROR("ListFeatures rpc failed.");
     }
   }
 
@@ -133,9 +138,10 @@ class RouteGuideClient {
         stub_->RecordRoute(&context, &stats));
     for (int i = 0; i < kPoints; i++) {
       const Feature& f = feature_list_[feature_distribution(generator)];
-      std::cout << "Visiting point "
-                << f.location().latitude()/kCoordFactor_ << ", "
-                << f.location().longitude()/kCoordFactor_ << std::endl;
+      // std::cout << "Visiting point "
+      //           << f.location().latitude()/kCoordFactor_ << ", "
+      //           << f.location().longitude()/kCoordFactor_ << std::endl;
+      SPDLOG_INFO("Visiting point {:f}, {:f}", f.location().latitude()/kCoordFactor_, f.location().longitude()/kCoordFactor_);
       if (!writer->Write(f.location())) {
         // Broken stream.
         break;
@@ -146,13 +152,18 @@ class RouteGuideClient {
     writer->WritesDone();
     Status status = writer->Finish();
     if (status.ok()) {
-      std::cout << "Finished trip with " << stats.point_count() << " points\n"
-                << "Passed " << stats.feature_count() << " features\n"
-                << "Travelled " << stats.distance() << " meters\n"
-                << "It took " << stats.elapsed_time() << " seconds"
-                << std::endl;
+      // std::cout << "Finished trip with " << stats.point_count() << " points\n"
+      //           << "Passed " << stats.feature_count() << " features\n"
+      //           << "Travelled " << stats.distance() << " meters\n"
+      //           << "It took " << stats.elapsed_time() << " seconds"
+      //           << std::endl;
+      SPDLOG_INFO("Finished trip with {:d} points", stats.point_count());
+      SPDLOG_INFO("Passed {:d} features", stats.feature_count());
+      SPDLOG_INFO("Travelled {:d} meters", stats.distance());
+      SPDLOG_INFO("It took {:d} seconds", stats.elapsed_time());
     } else {
-      std::cout << "RecordRoute rpc failed." << std::endl;
+      //std::cout << "RecordRoute rpc failed." << std::endl;
+      SPDLOG_ERROR("RecordRoute rpc failed.");
     }
   }
 
@@ -169,9 +180,10 @@ class RouteGuideClient {
         MakeRouteNote("Third message", 1, 0),
         MakeRouteNote("Fourth message", 0, 0)};
       for (const RouteNote& note : notes) {
-        std::cout << "Sending message " << note.message()
-                  << " at " << note.location().latitude() << ", "
-                  << note.location().longitude() << std::endl;
+        // std::cout << "Sending message " << note.message()
+        //           << " at " << note.location().latitude() << ", "
+        //           << note.location().longitude() << std::endl;
+        SPDLOG_INFO("Sending message {} at {:d}, {:d}", note.message(), note.location().latitude(), note.location().longitude());
         stream->Write(note);
       }
       stream->WritesDone();
@@ -179,14 +191,17 @@ class RouteGuideClient {
 
     RouteNote server_note;
     while (stream->Read(&server_note)) {
-      std::cout << "Got message " << server_note.message()
-                << " at " << server_note.location().latitude() << ", "
-                << server_note.location().longitude() << std::endl;
+      // std::cout << "Got message " << server_note.message()
+      //           << " at " << server_note.location().latitude() << ", "
+      //           << server_note.location().longitude() << std::endl;
+      SPDLOG_INFO("Got message {} at {:d}, {:d}", server_note.message(), 
+        server_note.location().latitude(), server_note.location().longitude());
     }
     writer.join();
     Status status = stream->Finish();
     if (!status.ok()) {
-      std::cout << "RouteChat rpc failed." << std::endl;
+      //std::cout << "RouteChat rpc failed." << std::endl;
+      SPDLOG_ERROR("RouteChat rpc failed.");
     }
   }
 
@@ -196,22 +211,28 @@ class RouteGuideClient {
     ClientContext context;
     Status status = stub_->GetFeature(&context, point, feature);
     if (!status.ok()) {
-      std::cout << "GetFeature rpc failed. error_message=" << status.error_message() << std::endl;
+      //std::cout << "GetFeature rpc failed. error_message=" << status.error_message() << std::endl;
+      SPDLOG_ERROR("GetFeature rpc failed. error_message={}", status.error_message());
       
       return false;
     }
     if (!feature->has_location()) {
-      std::cout << "Server returns incomplete feature." << std::endl;
+      //std::cout << "Server returns incomplete feature." << std::endl;
+      SPDLOG_WARN("Server returns incomplete feature.");
       return false;
     }
     if (feature->name().empty()) {
-      std::cout << "Found no feature at "
-                << feature->location().latitude()/kCoordFactor_ << ", "
-                << feature->location().longitude()/kCoordFactor_ << std::endl;
+      // std::cout << "Found no feature at "
+      //           << feature->location().latitude()/kCoordFactor_ << ", "
+      //           << feature->location().longitude()/kCoordFactor_ << std::endl;
+      SPDLOG_INFO("Found no feature at {:f}, {:f}", 
+        feature->location().latitude()/kCoordFactor_, feature->location().longitude()/kCoordFactor_ );
     } else {
-      std::cout << "Found feature called " << feature->name()  << " at "
-                << feature->location().latitude()/kCoordFactor_ << ", "
-                << feature->location().longitude()/kCoordFactor_ << std::endl;
+      // std::cout << "Found feature called " << feature->name()  << " at "
+      //           << feature->location().latitude()/kCoordFactor_ << ", "
+      //           << feature->location().longitude()/kCoordFactor_ << std::endl;
+      SPDLOG_INFO("Found feature called {} at {:f}, {:f}", feature->name(), 
+        feature->location().latitude()/kCoordFactor_, feature->location().longitude()/kCoordFactor_);
     }
     return true;
   }
@@ -222,6 +243,11 @@ class RouteGuideClient {
 };
 
 int main(int argc, char** argv) {
+  // 读取配置文件
+
+  // 初始化日志框架
+  init_logger("dev","logs/client","debug");
+
   // Expect only arg: --db_path=route_guide_db.json.
   std::string db = routeguide::GetDbFileContent(argc, argv);
 
@@ -240,20 +266,31 @@ int main(int argc, char** argv) {
 
   RouteGuideClient guide(channel, db);
 
-  std::cout << "-------------- GetFeature --------------" << std::endl;
+  //std::cout << "-------------- GetFeature --------------" << std::endl;
+  SPDLOG_INFO("-------------- GetFeature --------------");
   guide.GetFeature();
-  std::cout << "-------------- ListFeatures --------------" << std::endl;
+  //std::cout << "-------------- ListFeatures --------------" << std::endl;
+  SPDLOG_INFO("-------------- ListFeatures --------------");
   guide.ListFeatures();
-  std::cout << "-------------- RecordRoute --------------" << std::endl;
+  //std::cout << "-------------- RecordRoute --------------" << std::endl;
+  SPDLOG_INFO("-------------- RecordRoute --------------");
   if (argc < 2) {
-    std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
-    std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
+    //std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
+    //std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
+    SPDLOG_ERROR("请先指定参数: --db_path=xxx.json");
+    SPDLOG_ERROR("示例: --db_path=../../route_guide_db.json");
   } else {
     guide.RecordRoute();  
   }
   
-  std::cout << "-------------- RouteChat --------------" << std::endl;
+  //std::cout << "-------------- RouteChat --------------" << std::endl;
+  SPDLOG_INFO("-------------- RouteChat --------------");
   guide.RouteChat();
+
+  SPDLOG_INFO("应用退出");
+
+  //退出日志框架
+  exit_logger();
 
   return 0;
 }

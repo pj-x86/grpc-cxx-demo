@@ -23,6 +23,10 @@
 #include <memory>
 #include <string>
 
+#include <signal.h>
+
+#include "userlog.h"
+
 #include <grpc/grpc.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
@@ -30,11 +34,8 @@
 #include <grpcpp/security/server_credentials.h>
 #include "helper.h"
 #include "log_interceptor_server.h"
-#ifdef BAZEL_BUILD
-#include "examples/protos/route_guide.grpc.pb.h"
-#else
+
 #include "route_guide.grpc.pb.h"
-#endif
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -51,6 +52,17 @@ using routeguide::RouteNote;
 using routeguide::RouteGuide;
 using std::chrono::system_clock;
 
+// 专门处理 SIGUSR1 信号
+static void signal_handler(int signum)
+{
+  std::cout << "收到信号: " << signum << std::endl;
+
+  // 重新读取配置文件中的日志级别
+  //TODO
+
+  //动态修改日志级别
+  modify_log_level("info");
+}
 
 float ConvertToRadians(float num) {
   return num * 3.1415926 /180;
@@ -81,7 +93,8 @@ std::string GetFeatureName(const Point& point,
   for (const Feature& f : feature_list) {
     if (f.location().latitude() == point.latitude() &&
         f.location().longitude() == point.longitude()) {
-      std::cout << "found. name=" << f.name() << std::endl;
+      //std::cout << "found. name=" << f.name() << std::endl;
+      SPDLOG_INFO("found. name={}", f.name());
       return f.name();
     }
   }
@@ -96,7 +109,8 @@ class RouteGuideImpl final : public RouteGuide::Service {
 
   Status GetFeature(ServerContext* context, const Point* point,
                     Feature* feature) override {
-    std::cout << "latitude=" << point->latitude() << ",longitude=" << point->longitude() << std::endl; 
+    //std::cout << "latitude=" << point->latitude() << ",longitude=" << point->longitude() << std::endl; 
+    SPDLOG_INFO("latitude={:d},longitude={:d}", point->latitude(), point->longitude());
     feature->set_name(GetFeatureName(*point, feature_list_));
     feature->mutable_location()->CopyFrom(*point);
     return Status::OK;
@@ -194,19 +208,40 @@ void RunServer(const std::string& db_path) {
   builder.experimental().SetInterceptorCreators(std::move(interceptor_creators));
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
-  std::cout << "Server listening on " << server_address << std::endl;
+  //std::cout << "Server listening on " << server_address << std::endl;
+  SPDLOG_INFO("Server listening on {}", server_address);
+ 
   server->Wait();
 }
 
 int main(int argc, char** argv) {
+  // 读取配置文件
+
+  // 初始化日志框架
+  init_logger("dev","logs/server","debug");
+
+  //设置信号处理函数，专门处理 SIGUSR1，用于重新读取配置文件日志级别
+  struct sigaction sa;
+
+  sa.sa_handler = signal_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART; /* Restart functions if interrupted by handler */
+  if (sigaction(SIGUSR1, &sa, NULL) == -1)
+      /* Handle error */;
+
   // Expect only arg: --db_path=route_guide_db.json.
   if (argc < 2) {
-    std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
-    std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
+    //std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
+    //std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
+    SPDLOG_ERROR("请先指定参数: --db_path=xxx.json");
+    SPDLOG_ERROR("示例: --db_path=../../route_guide_db.json");
     exit(-1);
   }
   std::string db = routeguide::GetDbFileContent(argc, argv);
   RunServer(db);
+
+  //退出日志框架
+  exit_logger();
 
   return 0;
 }

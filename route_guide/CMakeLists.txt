@@ -146,14 +146,21 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+
+if(NOT TARGET spdlog)
+    # Stand-alone build
+    find_package(spdlog REQUIRED)
+endif()
+
 # Targets greeter_[async_](client|server)
 foreach(_target
 route_guide_client route_guide_server)
-  add_executable(${_target} "${_target}.cc" "helper.cc"
+  add_executable(${_target} "${_target}.cc" "helper.cc" "userlog.cc"
     ${hw_proto_srcs}
     ${hw_grpc_srcs})
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF})
+    ${_PROTOBUF_LIBPROTOBUF}
+    spdlog::spdlog)
 endforeach()

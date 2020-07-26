@@ -23,11 +23,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#ifdef BAZEL_BUILD
-#include "examples/protos/route_guide.grpc.pb.h"
-#else
+
+#include "userlog.h"
+
 #include "route_guide.grpc.pb.h"
-#endif
+
 
 namespace routeguide {
 
@@ -52,7 +52,8 @@ std::string GetDbFileContent(int argc, char** argv) {
   }
   std::ifstream db_file(db_path);
   if (!db_file.is_open()) {
-    std::cout << "Failed to open " << db_path << std::endl;
+    //std::cout << "Failed to open " << db_path << std::endl;
+    SPDLOG_ERROR("Failed to open {}", db_path);
     return "";
   }
   std::stringstream db;
@@ -152,13 +153,15 @@ void ParseDb(const std::string& db, std::vector<Feature>* feature_list) {
   while (!parser.Finished()) {
     feature_list->push_back(Feature());
     if (!parser.TryParseOne(&feature_list->back())) {
-      std::cout << "Error parsing the db file";
+      //std::cout << "Error parsing the db file";
+      SPDLOG_ERROR("Error parsing the db file");
       feature_list->clear();
       break;
     }
   }
-  std::cout << "DB parsed, loaded " << feature_list->size() << " features."
-            << std::endl;
+  //std::cout << "DB parsed, loaded " << feature_list->size() << " features."
+  //          << std::endl;
+  SPDLOG_INFO("DB parsed, loaded {:d} features.", feature_list->size());
 }
 
 }  // namespace routeguide
