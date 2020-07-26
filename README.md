@@ -8,6 +8,7 @@
 
 * log_interceptor_server.h: 服务端拦截器实现
 * log_interceptor_client.h: 客户端拦截器实现
+* userlog.cc: 引入 spdlog 日志库
 
 ## 编译说明
 
@@ -19,6 +20,10 @@ cd cmake/build
 cmake ../..
 make -j
 ```
+
+## 依赖说明
+
+本代码库引入了 spdlog 作为底层日志库，详见 CMakeLists.txt 。 spdlog 官方推荐安装静态库版本，安装详见[spdlog](https://github.com/gabime/spdlog)。
 
 ## 参考资料
 
