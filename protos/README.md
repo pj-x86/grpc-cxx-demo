@@ -1,8 +1,3 @@
-# Example protos
+# 目录说明
 
-## Contents
-
-- [helloworld.proto]
-  - The simple example used in the overview.
-- [route_guide.proto]
-  - An example service described in detail in the tutorial.
+本目录存放 protobuf 文件。

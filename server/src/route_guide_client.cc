@@ -1,19 +1,10 @@
-/*
- *
- * Copyright 2015 gRPC authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+/**
+ * @file route_guide_client.cc
+ * @author pj-x86 (pj81102@163.com)
+ * @brief 客户端主程序入口
+ * @version 0.1
+ * @date 2020-08-05
+ * 
  */
 
 #include <chrono>
@@ -242,55 +233,116 @@ class RouteGuideClient {
   std::vector<Feature> feature_list_;
 };
 
+/**
+ * @brief 配置信息
+ * 
+ */
+typedef struct STConfigInfo
+{
+    std::string LogPath;
+    std::string LogLevel;
+    std::string Env;
+
+    std::string LiqDBUser;
+    std::string LiqDBPasswd;
+    std::string LiqDBName;
+
+    std::string ServerPort;
+
+    std::string FileDBPath;
+} STConfigInfo;
+
+static STConfigInfo gConfigInfo;
+
+static int ParseArg(const char *sArg, const std::string &sKey, std::string &sVal)
+{
+    std::string argv = sArg;
+
+    size_t start_position = argv.find(sKey);
+    if (start_position != std::string::npos)
+    {
+        start_position += sKey.size();
+        if (argv[start_position] == ' ' || argv[start_position] == '=')
+        {
+            sVal = argv.substr(start_position + 1);
+        }
+        else
+            return -1;
+    }
+    else
+        return -1;
+
+    return 0;
+}
+
 int main(int argc, char** argv) {
-  // 读取配置文件
 
-  // 初始化日志框架
-  init_logger("dev","logs/client","debug");
+  int iRet = 0;
 
-  // Expect only arg: --db_path=route_guide_db.json.
-  std::string db = routeguide::GetDbFileContent(argc, argv);
+    if (argc < 3)
+    {
+        std::cout << "启动格式示例: " << argv[0] << " --port=20202 --db_path=./route_guide_db.json" << std::endl;
+        exit(-1);
+    }
 
-  //创建带客户端拦截器的 Channel 实例
-  grpc::ChannelArguments args;
-  std::vector<
-      std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
-      interceptor_creators;
-  interceptor_creators.push_back(std::unique_ptr<ClientLoggingInterceptorFactory>(
-      new ClientLoggingInterceptorFactory()));
-  auto channel = grpc::experimental::CreateCustomChannelWithInterceptors(
-      "localhost:50051", grpc::InsecureChannelCredentials(), args,
-      std::move(interceptor_creators));
+    iRet = ParseArg(argv[1], "--port", gConfigInfo.ServerPort);
+    if (iRet < 0)
+    {
+        std::cout << "请设置服务端口: --port=xxx" << std::endl;
+        exit(-1);
+    }
+    iRet = ParseArg(argv[2], "--db_path", gConfigInfo.FileDBPath);
+    if (iRet < 0)
+    {
+        std::cout << "请设置地理信息文件数据库: --db_path=xxx.json" << std::endl;
+        exit(-1);
+    }
 
-  //auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
+    // 初始化日志框架
+    init_logger("dev","../logs/client","debug");
 
-  RouteGuideClient guide(channel, db);
+    std::string db = routeguide::GetDbFileContent(gConfigInfo.FileDBPath);
 
-  //std::cout << "-------------- GetFeature --------------" << std::endl;
-  SPDLOG_INFO("-------------- GetFeature --------------");
-  guide.GetFeature();
-  //std::cout << "-------------- ListFeatures --------------" << std::endl;
-  SPDLOG_INFO("-------------- ListFeatures --------------");
-  guide.ListFeatures();
-  //std::cout << "-------------- RecordRoute --------------" << std::endl;
-  SPDLOG_INFO("-------------- RecordRoute --------------");
-  if (argc < 2) {
-    //std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
-    //std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
-    SPDLOG_ERROR("请先指定参数: --db_path=xxx.json");
-    SPDLOG_ERROR("示例: --db_path=../../route_guide_db.json");
-  } else {
-    guide.RecordRoute();  
-  }
-  
-  //std::cout << "-------------- RouteChat --------------" << std::endl;
-  SPDLOG_INFO("-------------- RouteChat --------------");
-  guide.RouteChat();
+    //创建带客户端拦截器的 Channel 实例
+    grpc::ChannelArguments args;
+    std::vector<
+        std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
+        interceptor_creators;
+    interceptor_creators.push_back(std::unique_ptr<ClientLoggingInterceptorFactory>(
+        new ClientLoggingInterceptorFactory()));
+    auto channel = grpc::experimental::CreateCustomChannelWithInterceptors(
+        "localhost:"+gConfigInfo.ServerPort, grpc::InsecureChannelCredentials(), args,
+        std::move(interceptor_creators));
 
-  SPDLOG_INFO("应用退出");
+    //auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
 
-  //退出日志框架
-  exit_logger();
+    RouteGuideClient guide(channel, db);
 
-  return 0;
+    //std::cout << "-------------- GetFeature --------------" << std::endl;
+    SPDLOG_INFO("-------------- GetFeature --------------");
+    guide.GetFeature();
+    //std::cout << "-------------- ListFeatures --------------" << std::endl;
+    SPDLOG_INFO("-------------- ListFeatures --------------");
+    guide.ListFeatures();
+    //std::cout << "-------------- RecordRoute --------------" << std::endl;
+    SPDLOG_INFO("-------------- RecordRoute --------------");
+    if (argc < 2) {
+      //std::cout << "请先指定参数: --db_path=xxx.json" << std::endl;
+      //std::cout << "示例: --db_path=../../route_guide_db.json" << std::endl;
+      SPDLOG_ERROR("请先指定参数: --db_path=xxx.json");
+      SPDLOG_ERROR("示例: --db_path=../../route_guide_db.json");
+    } else {
+      guide.RecordRoute();  
+    }
+    
+    //std::cout << "-------------- RouteChat --------------" << std::endl;
+    SPDLOG_INFO("-------------- RouteChat --------------");
+    guide.RouteChat();
+
+    SPDLOG_INFO("应用退出");
+
+    //退出日志框架
+    exit_logger();
+
+    return 0;
 }

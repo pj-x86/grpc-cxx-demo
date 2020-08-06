@@ -32,7 +32,7 @@ static void create_multi_sink(const std::string &env,const std::string &logfile_
 
     // Create a daily logger - a new file is created every day on 0:00am.
     auto daily_file_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logfile_prefix+".log", 0, 0);
-    daily_file_sink->set_level(spdlog::level::from_str(log_level));
+    daily_file_sink->set_level(spdlog::level::trace);
 
     //spdlog::logger logger("multi_sink", {console_sink, daily_file_sink});
     spdlog::sinks_init_list sink_list;
@@ -50,10 +50,13 @@ static void create_multi_sink(const std::string &env,const std::string &logfile_
     //spdlog::info("this message should not appear in the console, only in the file");
 }
 
-// 初始化日志框架
-// env: 环境标识，只有 dev 开发环境会同时向控制台和日志文件输出，可选值有 {"dev", "test", "prod"}
-// logfile_prefix: 日志文件前缀，包含路径，格式如 logs/server，生成的日志文件名类似 logs/server-2020-07-25.log
-// log_level: 日志文件日志级别，可选值有 {"trace", "debug", "info", "warning", "error", "critical", "off"}
+/**
+ * @brief 初始化日志框架
+ * 
+ * @param env 环境标识，只有 dev 开发环境会同时向控制台和日志文件输出，可选值有 {"dev", "test", "prod"}
+ * @param logfile_prefix 日志文件前缀，包含路径，格式如 logs/server，生成的日志文件名类似 logs/server-2020-07-25.log
+ * @param log_level 日志文件日志级别，可选值有 {"trace", "debug", "info", "warning", "error", "critical", "off"}
+ */
 void init_logger(const std::string &env,const std::string &logfile_prefix, const std::string &log_level)
 {
     try
@@ -93,7 +96,10 @@ void init_logger(const std::string &env,const std::string &logfile_prefix, const
     SPDLOG_INFO("当前文件日志级别为 {}", spdlog::level::to_string_view(spdlog::default_logger()->level()));
 }
 
-// 退出日志框架，释放资源
+/**
+ * @brief 退出日志框架，释放资源
+ * 
+ */
 void exit_logger()
 {
     // Release all spdlog resources, and drop all loggers in the registry.
@@ -102,8 +108,11 @@ void exit_logger()
     spdlog::shutdown();
 }
 
-// 动态修改全局日志级别
-// log_level: 日志级别，可选值有 {"trace", "debug", "info", "warning", "error", "critical", "off"}
+/**
+ * @brief 动态修改全局日志级别
+ * 
+ * @param log_level 日志级别，可选值有 {"trace", "debug", "info", "warning", "error", "critical", "off"}
+ */
 void modify_log_level(const std::string &log_level)
 {
     SPDLOG_INFO("修改日志级别，修改前日志级别为 {}", spdlog::level::to_string_view(spdlog::default_logger()->level()));

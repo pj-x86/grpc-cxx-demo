@@ -1,10 +1,14 @@
+/**
+ * @file log_interceptor_client.h
+ * @author pj-x86 (pj81102@163.com)
+ * @brief 客户端日志拦截器实现
+ * @version 0.1
+ * @date 2020-06-13
+ * 
+ */
+
 #ifndef _LOG_INTERCEPTOR_CLIENT_H_
 #define _LOG_INTERCEPTOR_CLIENT_H_
-/*
- * 客户端日志拦截器实现
- * 日期: 2020-06-13
- * 作者: pj
- */
 
 #include <map>
 

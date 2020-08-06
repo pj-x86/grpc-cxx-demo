@@ -19,16 +19,20 @@
 
 cmake_minimum_required(VERSION 3.17.0)
 
+# 项目名称
 project(route_guide C CXX)
 
+# 编译器参数相关
 if(NOT MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11")
 else()
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
+# 查找多线程库
 find_package(Threads REQUIRED)
 
+# 查找 grpc 和 protobuf 
 if(GRPC_AS_SUBMODULE)
   # One way to build a projects that uses gRPC is to just include the
   # entire gRPC project tree via "add_subdirectory".
@@ -124,6 +128,14 @@ else()
   endif()
 endif()
 
+# 查找日志库 spdlog
+if(NOT TARGET spdlog)
+    # Stand-alone build
+    find_package(spdlog REQUIRED)
+    message(STATUS "Using spdlog ${spdlog_VERSION}")
+endif()
+
+# protobuf 文件编译
 # Proto file
 get_filename_component(hw_proto "../protos/route_guide.proto" ABSOLUTE)
 get_filename_component(hw_proto_path "${hw_proto}" PATH)
@@ -146,18 +158,50 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+include_directories(
+  "${PROJECT_BINARY_DIR}/include"
+  "."
+)
 
-if(NOT TARGET spdlog)
-    # Stand-alone build
-    find_package(spdlog REQUIRED)
-endif()
+# 定义函数，用于递归添加头文件
+function(include_sub_directories_recursively root_dir)
+    if (IS_DIRECTORY ${root_dir})               # 当前路径是一个目录吗，是的话就加入到包含目录
+        message(STATUS "include dir: " ${root_dir})
+        include_directories(${root_dir})
+    endif()
 
-# Targets greeter_[async_](client|server)
+    file(GLOB ALL_SUB RELATIVE ${root_dir} ${root_dir}/*) # 获得当前目录下的所有文件，让如ALL_SUB列表中
+    foreach(sub ${ALL_SUB})
+        if (IS_DIRECTORY ${root_dir}/${sub})
+            include_sub_directories_recursively(${root_dir}/${sub}) # 对子目录递归调用，包含
+        endif()
+    endforeach()
+endfunction()
+
+# 添加src目录下的所有头文件
+include_sub_directories_recursively(${CMAKE_CURRENT_SOURCE_DIR}/src) # 对子目录递归调用
+MESSAGE(STATUS "CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+
+# 将指定目录下的源文件列表保存到指定变量
+aux_source_directory(src/common DIR_COMMON_SRCS)
+aux_source_directory(src/util DIR_UTIL_SRCS)
+aux_source_directory(src/service DIR_SERVICE_SRCS)
+
+# 指定可执行文件输出目录
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+MESSAGE(STATUS "EXECUTABLE_OUTPUT_PATH: " ${EXECUTABLE_OUTPUT_PATH})
+
+# 指定可执行文件依赖的源文件以及需要链接的动态库
 foreach(_target
 route_guide_client route_guide_server)
-  add_executable(${_target} "${_target}.cc" "helper.cc" "userlog.cc"
+  add_executable(${_target} 
+    "src/${_target}.cc" 
+    ${DIR_COMMON_SRCS}
+    ${DIR_UTIL_SRCS}
+    ${DIR_SERVICE_SRCS}
     ${hw_proto_srcs}
     ${hw_grpc_srcs})
+    
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
